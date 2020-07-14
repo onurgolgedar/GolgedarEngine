@@ -40,13 +40,13 @@ namespace GolgedarEngine
             AddSprite(imageName, sprite);
          }
       }
-      public static double ToRad(double degrees)
+      public static float ToRad(float degrees)
       {
-         return degrees * (Math.PI / 180);
+         return degrees * (float) (Math.PI / 180);
       }
-      public static double ToDegrees(double radians)
+      public static float ToDegrees(float radians)
       {
-         return radians * 180 / Math.PI;
+         return radians * 180 / (float) Math.PI;
       }
       public static void HandleNvidiaProfile(string applicationName)
       {
