@@ -7,8 +7,18 @@ namespace GolgedarEngine
    {
       public GameObject(string imageName)
       {
-         Game = Game.ActiveGame;
+         Initialization();
          Sprite = new Sprite(Global.GetSprite(imageName));
+      }
+
+      public GameObject()
+      {
+         Initialization();
+         Sprite = new Sprite();
+         if (true)
+         {
+
+         }
       }
 
       public abstract void Draw();
@@ -23,6 +33,10 @@ namespace GolgedarEngine
          Game.Window.Draw(Sprite);
       }
 
+      private void Initialization()
+      {
+         Game = Game.ActiveGame;
+      }
       public int CompareTo(GameObject obj)
       {
          return Depth > obj.Depth ? 1 : 0;

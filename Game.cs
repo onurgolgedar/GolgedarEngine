@@ -9,49 +9,95 @@ namespace GolgedarEngine
    public class Game
    {
       readonly Color BACKGROUND_COLOR = new Color(25, 125, 25);
-      private readonly Dictionary<Keyboard.Key, bool> checkKeyboard = new Dictionary<Keyboard.Key, bool>();
+      readonly RectangleShape blackScreen;
+      readonly string windowCaption;
+      private bool roomChanged;
+      private readonly SortedList<Keyboard.Key, bool> checkKeyboard = new SortedList<Keyboard.Key, bool>();
+      private readonly SortedList<Keyboard.Key, bool> pressKeyboard = new SortedList<Keyboard.Key, bool>();
+      private readonly SortedList<Keyboard.Key, bool> releaseKeyboard = new SortedList<Keyboard.Key, bool>();
 
-      public Game()
+      public Game(string windowCaption, RoomData roomData)
       {
+         this.windowCaption = windowCaption;
+
+         RoomData = roomData;
          ActiveGame = this;
          Clock = new Clock();
-
-         foreach (Keyboard.Key key in Enum.GetValues(typeof(Keyboard.Key)))
-            checkKeyboard.TryAdd(key, false);
+         blackScreen = new RectangleShape();
       }
 
-      private void Initialization()
+      public void LoadRoom(string roomName)
       {
-         Window = new RenderWindow(new VideoMode(1920, 1080), "SFML window");
-         Window.SetVisible(true);
-         Window.SetVerticalSyncEnabled(true);
-
-         Window.SetKeyRepeatEnabled(true);
-         Window.Closed += new EventHandler(WindowClosed);
-         Window.KeyPressed += new EventHandler<KeyEventArgs>(KeyPressed);
-         Window.KeyReleased += new EventHandler<KeyEventArgs>(KeyReleased);
-
-         Clock.Restart();
+         ActiveRoom = new Room(roomName, RoomData);
+         blackScreen.FillColor = new Color(0, 0, 0, 255);
+         roomChanged = true;
       }
+      public void LoadNextRoom()
+      {
+         try
+         {
+            LoadRoom(RoomData.GetRooms()[(RoomData.GetRooms().IndexOf(ActiveRoom.RoomName) + 1)]);
+         }
+         catch (Exception e)
+         {
+            Console.WriteLine(Global.GetExceptionMessage("The next room does not exists.", e));
+         }
+      }
+      public void LoadPreviousRoom()
+      {
+         try
+         {
+            LoadRoom(RoomData.GetRooms()[(RoomData.GetRooms().IndexOf(ActiveRoom.RoomName) - 1)]);
+         }
+         catch (Exception e)
+         {
+            Console.WriteLine(Global.GetExceptionMessage("The previous room does not exists.", e));
+         }
+      }
+
       public void Run()
       {
-         Initialization();
+         Initialization(windowCaption);
          GameStart();
          MainLoop();
          GameEnd();
       }
+      public void SetWindow()
+      {
+         IsFullScreen = true;
+         SetWindow_local(new RenderWindow(VideoMode.DesktopMode, windowCaption, Styles.Fullscreen));
+      }
+      public void SetWindow(uint width, uint height)
+      {
+         IsFullScreen = false;
+         SetWindow_local(new RenderWindow(new VideoMode(width, height), windowCaption, Styles.Close));
+      }
+      private void SetWindow_local(RenderWindow renderWindow)
+      {
+         if (Window != null)
+            Window.Dispose();
+
+         Window = renderWindow;
+         Window.SetVisible(true);
+         Window.SetVerticalSyncEnabled(true);
+         Window.SetKeyRepeatEnabled(false);
+
+         Window.Closed += new EventHandler(WindowClosed);
+         Window.KeyPressed += new EventHandler<KeyEventArgs>(KeyPressed);
+         Window.KeyReleased += new EventHandler<KeyEventArgs>(KeyReleased);
+
+         blackScreen.Size = (Vector2f)Window.Size;
+      }
 
       // Phases
-      private void Draw()
+      private void Initialization(string windowCaption)
       {
-         foreach (GameObject gameObject in ActiveRoom.Instances_SortedByDepth.Values)
-            gameObject.Draw();
-      }
-      private void GameEnd()
-      {
+         SetWindow(1920, 1080);
+         Clock.Restart();
       }
       private void GameStart()
       {
+
       }
       private void MainLoop()
       {
@@ -60,15 +106,49 @@ namespace GolgedarEngine
             DeltaTime = Clock.ElapsedTime.AsMilliseconds();
             Clock.Restart();
 
+            roomChanged = false;
             foreach (GameObject gameObject in ActiveRoom.Instances_SortedByCreation.Values)
+            {
                gameObject.Loop();
+               if (roomChanged)
+                  break;
+            }
+
+            pressKeyboard.Clear();
+            releaseKeyboard.Clear();
+            if (roomChanged)
+               continue;
 
             Window.Clear(BACKGROUND_COLOR);
             Draw();
 
             Window.DispatchEvents();
             Window.Display();
+            
          }
+      }
+      private void Draw()
+      {
+         foreach (GameObject gameObject in ActiveRoom.Instances_SortedByDepth)
+            gameObject.Draw();
+
+         if (blackScreen.FillColor.A > 0)
+         {
+            int newAlpha = (int)(blackScreen.FillColor.A * Math.Pow(0.1, DeltaTime / 1000d));
+            if (newAlpha > 0)
+            {
+               Window.Draw(blackScreen);
+               blackScreen.FillColor = new Color(0, 0, 0, (byte)newAlpha);
+            }
+            else
+            {
+               Window.Draw(blackScreen);
+               blackScreen.FillColor = new Color(0, 0, 0, 0);
+            }
+         }
+      }
+      private void GameEnd()
+      {
       }
 
       // Events
@@ -79,23 +159,34 @@ namespace GolgedarEngine
       }
       private void KeyPressed(object sender, KeyEventArgs e)
       {
-         checkKeyboard[e.Code] = true;
+         checkKeyboard.TryAdd(e.Code, true);
+         pressKeyboard.TryAdd(e.Code, true);
       }
       private void KeyReleased(object sender, KeyEventArgs e)
       {
-         checkKeyboard[e.Code] = false;
+         releaseKeyboard.TryAdd(e.Code, true);
+         checkKeyboard.Remove(e.Code);
       }
 
       public bool CheckKey(Keyboard.Key key)
       {
          return checkKeyboard.GetValueOrDefault(key, false);
       }
+      public bool IsKeyPressed(Keyboard.Key key)
+      {
+         return pressKeyboard.GetValueOrDefault(key, false);
+      }
+      public bool IsKeyReleased(Keyboard.Key key)
+      {
+         return releaseKeyboard.GetValueOrDefault(key, false);
+      }
 
-      // Properties
       public int DeltaTime { get; private set; }
       public RenderWindow Window { get; set; }
-      public Room ActiveRoom { get; set; }
+      public RoomData RoomData { get; set; }
+      public bool IsFullScreen { get; private set; }
       public Clock Clock { get; }
       public static Game ActiveGame { get; internal set; }
+      public Room ActiveRoom { get; private set; }
    }
 }
