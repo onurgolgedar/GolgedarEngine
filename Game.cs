@@ -59,6 +59,8 @@ namespace GolgedarEngine
       {
          Initialization(windowCaption);
          GameStart();
+         ActiveRoom.Load();
+         roomChanged = false;
          MainLoop();
          GameEnd();
       }
@@ -80,6 +82,7 @@ namespace GolgedarEngine
          Window = renderWindow;
          Window.SetVisible(true);
          Window.SetVerticalSyncEnabled(true);
+         //Window.SetFramerateLimit(60);
          Window.SetKeyRepeatEnabled(false);
 
          Window.Closed += new EventHandler(WindowClosed);
@@ -106,27 +109,47 @@ namespace GolgedarEngine
             DeltaTime = Clock.ElapsedTime.AsMilliseconds();
             Clock.Restart();
 
-            roomChanged = false;
-            foreach (GameObject gameObject in ActiveRoom.Instances_SortedByCreation.Values)
-            {
-               gameObject.Loop();
-               if (roomChanged)
-                  break;
-            }
+            List<GameObject> collisionInstances = new List<GameObject>(ActiveRoom.InstancesWithCollisionMask_SortedByCreation);
 
-            pressKeyboard.Clear();
-            releaseKeyboard.Clear();
-            if (roomChanged)
-               continue;
+            for (int gameObjectIndex = 0; gameObjectIndex < ActiveRoom.Instances_SortedByCreation.Count; gameObjectIndex++)
+            {
+               GameObject gameObject = ActiveRoom.Instances_SortedByCreation.Values[gameObjectIndex];
+               gameObject.Loop();
+
+               int collisionPairIndex = gameObject is IPusher ? collisionInstances.LastIndexOf(gameObject) : -1;
+               if (collisionPairIndex != -1)
+               {
+                  Queue<GameObject> queue = new Queue<GameObject>(collisionInstances);
+                  while (queue.TryDequeue(out GameObject secondaryGameObject))
+                  {
+                     if (secondaryGameObject != null)
+                     {
+                        if (gameObject.CollisionMask.GetGlobalBounds().Intersects(secondaryGameObject.CollisionMask.GetGlobalBounds(), out FloatRect overlap))
+                        {
+                           gameObject.Collision(secondaryGameObject);
+                        }
+                     }
+                  }
+               }
+
+               if (roomChanged)
+               {
+                  ActiveRoom.Load();
+                  roomChanged = false;
+               }
+            }
 
             Window.Clear(BACKGROUND_COLOR);
             Draw();
 
+            pressKeyboard.Clear();
+            releaseKeyboard.Clear();
+
             Window.DispatchEvents();
             Window.Display();
-            
          }
       }
+
       private void Draw()
       {
          foreach (GameObject gameObject in ActiveRoom.Instances_SortedByDepth)
@@ -190,3 +213,68 @@ namespace GolgedarEngine
       public Room ActiveRoom { get; private set; }
    }
 }
+
+/*
+Vector2f myMaskCenter = gameObject.CollisionMask.Position + gameObject.CollisionMask.Size / 2;
+Vector2f otherMaskCenter = secondaryGameObject.CollisionMask.Position + secondaryGameObject.CollisionMask.Size / 2;
+Vector2f maskCenterDiff = myMaskCenter - otherMaskCenter;
+float nonZeroComponent = maskCenterDiff.X != 0 ? maskCenterDiff.X : maskCenterDiff.Y;
+int nonZeroComponentSign = Math.Sign(nonZeroComponent);
+
+Vector2f totalDisplacement;
+
+int oneDirection = Math.Abs(maskCenterDiff.X / maskCenterDiff.Y) > 4 ? 0 : 1;
+if (Math.Sign(maskCenterDiff.X) == Math.Sign(maskCenterDiff.Y))
+{
+   if (overlap.Width < overlap.Height)
+   {
+      totalDisplacement = new Vector2f(overlap.Width, oneDirection * overlap.Width * (overlap.Width / overlap.Height)) * -nonZeroComponentSign;
+      totalDisplacement.X = Math.Sign(totalDisplacement.X) * (float)Math.Ceiling(Math.Abs(totalDisplacement.X));
+   }
+   else
+   {
+      totalDisplacement = new Vector2f(oneDirection * overlap.Height * (overlap.Height / overlap.Width), overlap.Height) * -nonZeroComponentSign;
+      totalDisplacement.Y = Math.Sign(totalDisplacement.Y) * (float)Math.Ceiling(Math.Abs(totalDisplacement.Y));
+   }
+}
+else
+{
+   if (overlap.Width < overlap.Height)
+   {
+      totalDisplacement = new Vector2f(overlap.Width, oneDirection * -overlap.Width * (overlap.Width / overlap.Height)) * -nonZeroComponentSign;
+      totalDisplacement.X = Math.Sign(totalDisplacement.X) * (float)Math.Ceiling(Math.Abs(totalDisplacement.X));
+   }
+   else
+   {
+      totalDisplacement = new Vector2f(oneDirection * overlap.Height * (overlap.Height / overlap.Width), -overlap.Height) * -nonZeroComponentSign;
+      totalDisplacement.Y = Math.Sign(totalDisplacement.Y) * (float)Math.Ceiling(Math.Abs(totalDisplacement.Y));
+   }
+}
+
+if (otherPusher.Weight > pusher.Weight)
+{
+   if (otherPusher.Weight < uint.MaxValue / 2)
+   {
+      Vector2f displacementDone = totalDisplacement / ((ulong)pusher.Weight + otherPusher.Weight) * pusher.Weight;
+      secondaryGameObject.Position += displacementDone;
+      totalDisplacement -= displacementDone;
+   }
+
+   if (pusher.Weight < uint.MaxValue / 2)
+      gameObject.Position -= totalDisplacement;
+}
+else
+{
+   if (pusher.Weight < uint.MaxValue / 2)
+   {
+      Vector2f displacementDone = totalDisplacement / ((ulong)pusher.Weight + otherPusher.Weight) * otherPusher.Weight;
+      gameObject.Position -= displacementDone;
+      totalDisplacement -= displacementDone;
+   }
+
+   if (otherPusher.Weight < uint.MaxValue / 2)
+      secondaryGameObject.Position += totalDisplacement;
+}
+
+queue.Enqueue(secondaryGameObject);
+*/

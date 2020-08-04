@@ -5,6 +5,7 @@ namespace GolgedarEngine
 {
    public static class Vector
    {
+      public static Vector2f Zero { get; } = new Vector2f(0, 0);
       public static Vector2f Up { get; } = new Vector2f(0, -1);
       public static Vector2f Down { get; } = new Vector2f(0, 1);
       public static Vector2f Left { get; } = new Vector2f(-1, 0);
@@ -14,10 +15,14 @@ namespace GolgedarEngine
       {
          return new Vector2f(x, y);
       }
-
-      public static float GetDirection(Vector2f vector)
+      public static Vector2f Create(float lenght, double angle)
       {
-         return Global.ToDegrees((float)Math.Atan2(vector.Y, vector.X));
+         return new Vector2f((float)(lenght * Math.Cos(angle)), (float)(lenght * Math.Sin(angle)));
+      }
+
+      public static double GetDirection(Vector2f vector)
+      {
+         return Global.ToDegrees(Math.Atan2(vector.Y, vector.X));
       }
    }
 }

@@ -14,7 +14,11 @@ namespace GolgedarEngine
 
       public abstract ImmutableList<string> GetRooms();
       public abstract void SetDesign(string roomName);
-      public void PutInstance(GameObject gameObject, Vector2f position = new Vector2f(), short depth = 0)
+      public void PutInstance(GameObject gameObject, short depth = 0)
+      {
+         PutInstance(gameObject, new Vector2f(float.MinValue, float.MinValue), depth);
+      }
+      public void PutInstance(GameObject gameObject, Vector2f position, short depth = 0)
       {
          gameObject.Position = position;
          gameObject.Depth = depth;
@@ -27,6 +31,7 @@ namespace GolgedarEngine
 
       internal void Load(string roomName)
       {
+         InstanceCount = 0;
          Instances_SortedByDepth.Clear();
          Instances_SortedByCreation.Clear();
 

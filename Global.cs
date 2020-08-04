@@ -36,15 +36,15 @@ namespace GolgedarEngine
          foreach (string imageName in imageNames)
          {
             Sprite sprite = CreateSprite(imageName);
-            sprite.Origin = new Vector2f(sprite.Texture.Size.X / 2, sprite.Texture.Size.X / 2);
+            sprite.Origin = new Vector2f(sprite.Texture.Size.X / 2f, sprite.Texture.Size.X / 2f);
             AddSprite(imageName, sprite);
          }
       }
-      public static float ToRad(float degrees)
+      public static double ToRad(double degrees)
       {
          return degrees * (float)(Math.PI / 180);
       }
-      public static float ToDegrees(float radians)
+      public static double ToDegrees(double radians)
       {
          return radians * 180 / (float)Math.PI;
       }
