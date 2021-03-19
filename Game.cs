@@ -3,6 +3,7 @@ using SFML.System;
 using SFML.Window;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace GolgedarEngine
 {
@@ -40,7 +41,7 @@ namespace GolgedarEngine
          }
          catch (Exception e)
          {
-            Console.WriteLine(Global.GetExceptionMessage("The next room does not exists.", e));
+            Debug.WriteLine(Global.GetExceptionMessage("The next room does not exists.", e));
          }
       }
       public void LoadPreviousRoom()
@@ -51,7 +52,7 @@ namespace GolgedarEngine
          }
          catch (Exception e)
          {
-            Console.WriteLine(Global.GetExceptionMessage("The previous room does not exists.", e));
+            Debug.WriteLine(Global.GetExceptionMessage("The previous room does not exists.", e));
          }
       }
 
@@ -116,20 +117,18 @@ namespace GolgedarEngine
                GameObject gameObject = ActiveRoom.Instances_SortedByCreation.Values[gameObjectIndex];
                gameObject.Loop();
 
-               int collisionPairIndex = gameObject is IPusher ? collisionInstances.LastIndexOf(gameObject) : -1;
-               if (collisionPairIndex != -1)
+               int collisionIndex = collisionInstances.LastIndexOf(gameObject);
+               if (collisionIndex != -1)
                {
-                  Queue<GameObject> queue = new Queue<GameObject>(collisionInstances);
-                  while (queue.TryDequeue(out GameObject secondaryGameObject))
+                  collisionInstances.RemoveAt(collisionIndex);
+
+                  foreach (GameObject collisionPair in collisionInstances)
                   {
-                     if (secondaryGameObject != null)
-                     {
-                        if (gameObject.CollisionMask.GetGlobalBounds().Intersects(secondaryGameObject.CollisionMask.GetGlobalBounds(), out FloatRect overlap))
-                        {
-                           gameObject.Collision(secondaryGameObject);
-                        }
-                     }
+                     if (gameObject.CollisionMask.GetGlobalBounds().Intersects(collisionPair.CollisionMask.GetGlobalBounds(), out FloatRect overlap))
+                        gameObject.Collision(collisionPair);
                   }
+
+                  collisionInstances.Insert(collisionIndex, gameObject);
                }
 
                if (roomChanged)
