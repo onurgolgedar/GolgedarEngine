@@ -41,7 +41,7 @@ namespace GolgedarEngine
          }
          catch (Exception e)
          {
-            Debug.WriteLine(Global.GetExceptionMessage("The next room does not exists.", e));
+            Debug.WriteLine(Global.GetExceptionMessage("The next room does not exist.", e));
          }
       }
       public void LoadPreviousRoom()
@@ -52,7 +52,7 @@ namespace GolgedarEngine
          }
          catch (Exception e)
          {
-            Debug.WriteLine(Global.GetExceptionMessage("The previous room does not exists.", e));
+            Debug.WriteLine(Global.GetExceptionMessage("The previous room does not exist.", e));
          }
       }
 
