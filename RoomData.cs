@@ -28,6 +28,13 @@ namespace GolgedarEngine
             Instances_SortedByCreation.TryAdd(InstanceCount, gameObject);
             InstanceCount = Instances_SortedByCreation.Count;
         }
+        public void RemoveInstance(GameObject gameObject)
+        {
+            Instances_SortedByDepth.Remove(gameObject);
+            Instances_SortedByCreation.Remove(Instances_SortedByCreation.IndexOfValue(gameObject));
+
+            InstanceCount = Instances_SortedByCreation.Count;
+        }
 
         internal void Load(string roomName)
         {

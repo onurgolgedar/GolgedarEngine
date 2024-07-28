@@ -49,8 +49,9 @@ namespace GolgedarEngine
         {
             return radians * 180 / (float)Math.PI;
         }
-        public static void HandleNvidiaProfile(string profileName, string fileName)
+        public static void HandleNvidiaProfile(string profileName)
         {
+            string fileName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
             bool initialized = false;
             try
             {
