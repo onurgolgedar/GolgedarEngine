@@ -13,13 +13,15 @@ namespace GolgedarEngine
             TCPClient = tcpClient;
             ConnectionID = ++lastConnectionID;
             IP = (TCPClient.Client.RemoteEndPoint as IPEndPoint).Address.ToString();
-            ConnectedObjects = new();
+            ConnectedObjects = [];
         }
 
         public void Disconnect()
         {
             ConnectedObjects.ForEach(i => i.Game?.RoomData?.RemoveInstance(i));
             ConnectedObjects.Clear();
+
+            Server.Send(this, 'D', int.MaxValue);
             TCPClient.Dispose();
         }
 
@@ -29,6 +31,7 @@ namespace GolgedarEngine
         }
 
         public TcpClient TCPClient { get; private set; }
+        public Server Server { get; private set; }
         public string IP { get; private set; }
         public int ConnectionID { get; private set; }
         public List<ConnectedGameObject> ConnectedObjects { get; protected set; }

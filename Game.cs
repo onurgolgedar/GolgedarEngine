@@ -138,6 +138,17 @@ namespace GolgedarEngine
                     }
                 }
 
+                for (int gameObjectIndex = 0; gameObjectIndex < ActiveRoom.Instances_SortedByCreation.Count; gameObjectIndex++)
+                {
+                    GameObject gameObject = ActiveRoom.Instances_SortedByCreation.Values[gameObjectIndex];
+                    if (gameObject.IsMarkedToBeDeleted)
+                    {
+                        ActiveRoom.Instances_SortedByDepth.Remove(gameObject);
+                        ActiveRoom.Instances_SortedByCreation.Remove(RoomData.Instances_SortedByCreation.IndexOfValue(gameObject));
+                        gameObjectIndex--;
+                    }
+                }
+
                 Window.Clear(BACKGROUND_COLOR);
                 Draw();
 
@@ -151,8 +162,11 @@ namespace GolgedarEngine
 
         private void Draw()
         {
-            foreach (GameObject gameObject in ActiveRoom.Instances_SortedByDepth)
+            for (int i = 0; i < ActiveRoom.Instances_SortedByDepth.Count; i++)
+            {
+                GameObject gameObject = ActiveRoom.Instances_SortedByDepth[i];
                 gameObject.Draw();
+            }
 
             if (blackScreen.FillColor.A > 0)
             {

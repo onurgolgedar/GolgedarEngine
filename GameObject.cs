@@ -1,5 +1,6 @@
 ﻿using SFML.Graphics;
 using SFML.System;
+using System.Text.Json.Serialization;
 
 namespace GolgedarEngine
 {
@@ -44,6 +45,7 @@ namespace GolgedarEngine
             return Depth > obj.Depth ? 1 : 0;
         }
 
+        [JsonIgnore]
         public Vector2f Position
         {
             get { return Sprite.Position; }
@@ -53,10 +55,15 @@ namespace GolgedarEngine
                 CollisionMask.Position = value;
             }
         }
+        [JsonIgnore]
+        public bool IsMarkedToBeDeleted { get; set; }
+        [JsonIgnore]
         public int Depth { get; set; } = 0;
+        [JsonIgnore]
         public Sprite Sprite { get; set; }
+        [JsonIgnore]
         public CollisionMask CollisionMask { get; internal set; }
-
+        [JsonIgnore]
         public Game Game { get; internal set; }
     }
 }

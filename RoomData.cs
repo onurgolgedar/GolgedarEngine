@@ -24,21 +24,22 @@ namespace GolgedarEngine
             gameObject.Depth = depth;
 
             Instances_SortedByDepth.Add(gameObject);
-
-            Instances_SortedByCreation.TryAdd(InstanceCount, gameObject);
-            InstanceCount = Instances_SortedByCreation.Count;
+            Instances_SortedByCreation.TryAdd(Instances_SortedByCreation.Count, gameObject);
         }
         public void RemoveInstance(GameObject gameObject)
         {
-            Instances_SortedByDepth.Remove(gameObject);
-            Instances_SortedByCreation.Remove(Instances_SortedByCreation.IndexOfValue(gameObject));
+            gameObject.IsMarkedToBeDeleted = true;
 
-            InstanceCount = Instances_SortedByCreation.Count;
+            //Instances_SortedByDepth.Remove(gameObject);
+            //Instances_SortedByCreation.Remove(Instances_SortedByCreation.IndexOfValue(gameObject));
+        }
+        public bool CheckInstance(GameObject gameObject)
+        {
+            return !gameObject.IsMarkedToBeDeleted && Instances_SortedByCreation.IndexOfValue(gameObject) != -1;
         }
 
         internal void Load(string roomName)
         {
-            InstanceCount = 0;
             Instances_SortedByDepth.Clear();
             Instances_SortedByCreation.Clear();
 
@@ -47,7 +48,7 @@ namespace GolgedarEngine
             Instances_SortedByDepth = Instances_SortedByDepth.OrderBy(gameObject => -gameObject.Depth).ToList();
         }
 
-        public int InstanceCount { get; internal set; }
+        public int InstanceCount => Instances_SortedByCreation?.Count ?? 0;
         public List<GameObject> Instances_SortedByDepth { get; internal set; }
         public SortedList<int, GameObject> Instances_SortedByCreation { get; internal set; } = new SortedList<int, GameObject>();
     }

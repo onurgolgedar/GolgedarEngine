@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Net;
 using System.Threading.Tasks;
+using System.Text;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace GolgedarEngine
 {
@@ -19,33 +25,29 @@ namespace GolgedarEngine
 
             Task.Run(Listen);
             Task.Run(CheckInClients);
-
-            Console.WriteLine($"The server has been stabilized.");
-        }
-
-        private async Task CheckInClients()
-        {
-            while (true)
-            {
-                foreach (var client in users.Values)
-                {
-                    if (!IsConnected(client.TCPClient))
-                    {
-                        users.Remove(client.ConnectionID);
-                        Console.WriteLine($"A client has been disconnected {client}.");
-                    }
-
-                    await Task.Delay(25);
-                }
-
-                await Task.Delay(250);
-            }
         }
 
         private async Task Listen()
         {
             listener = new TcpListener(new IPEndPoint(IPAddress.Any, SERVER_PORT));
-            listener.Start();
+
+            bool isListenerStarted = false;
+            while (!isListenerStarted)
+            {
+                try
+                {
+                    listener.Start();
+                    isListenerStarted = true;
+                }
+                catch (SocketException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine($"The server has failed to start.");
+                    isListenerStarted = false;
+                }
+
+                await Task.Delay(1000);
+            }
 
             Console.WriteLine($"The server has been started to listening.");
 
@@ -55,42 +57,19 @@ namespace GolgedarEngine
 
                 NetworkStream stream = tcpClient.GetStream();
 
-                User client = new User(tcpClient);
-                users.Add(client.ConnectionID, client);
+                User user = new User(tcpClient);
+                users.Add(user.ConnectionID, user);
 
                 Task handleClient = Task.Run(() =>
                 {
-                    HandleClientAsync(client, stream);
+                    HandleClientAsync(user, stream);
                 });
 
-                Console.WriteLine($"A client has been connected {client}.");
+                Connected(user);
+
+                Console.WriteLine($"A client has been connected {user}.");
             }
         }
-
-        private static bool IsConnected(TcpClient client)
-        {
-            try
-            {
-                if (client != null && client.Client != null && client.Client.Connected)
-                {
-                    if (client.Client.Poll(0, SelectMode.SelectRead))
-                    {
-                        byte[] buff = new byte[1];
-                        if (client.Client.Receive(buff, SocketFlags.Peek) == 0)
-                            return false;
-                    }
-
-                    return true;
-                }
-                else
-                    return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private void HandleClientAsync(User client, NetworkStream stream)
         {
             TcpClient tcpClient = client.TCPClient;
@@ -159,11 +138,25 @@ namespace GolgedarEngine
                                     break;
 
                                 default:
-                                    int dataLength = Convert.ToInt32(dataType.ToString());
-                                    data = BitConverter.ToString(buffer[readIndex..(readIndex + dataLength)]);
+                                    int dataLength = Convert.ToInt32(buffer[readIndex]);
+                                    readIndex++;
+
+                                    data = Encoding.UTF8.GetString(buffer[readIndex..(readIndex + dataLength)]);
                                     readIndex += dataLength;
+
                                     if (client != null)
-                                        Process(client, code, (string)data);
+                                    {
+                                        if (dataType != 'O')
+                                            Process(client, code, (string)data);
+                                        else
+                                        {
+                                            JObject.Parse((string)data).TryGetValue("Data", out JToken dataToken);
+                                            JObject.Parse((string)data).TryGetValue("TypeName", out JToken typeNameToken);
+
+                                            if (dataToken != null && typeNameToken != null)
+                                                Process(client, code, dataToken.ToString(), typeNameToken.ToString());
+                                        }
+                                    }
                                     break;
                             }
 
@@ -176,32 +169,130 @@ namespace GolgedarEngine
                 }
             }
         }
+        private bool IsConnected(User user)
+        {
+            try
+            {
+                if (user?.TCPClient != null && user.TCPClient.Client?.Connected == true)
+                {
+                    if (user.TCPClient.Client.Poll(0, SelectMode.SelectRead))
+                    {
+                        byte[] buff = new byte[1];
+                        if (user.TCPClient.Client.Receive(buff, SocketFlags.Peek) == 0)
+                            return false;
+                    }
+
+                    return true;
+                }
+                else
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        private async Task CheckInClients()
+        {
+            while (true)
+            {
+                foreach (User user in users.Values)
+                {
+                    if (!IsConnected(user))
+                    {
+                        users.Remove(user.ConnectionID);
+                        Disconnected(user);
+                        Console.WriteLine($"A client has been disconnected {user}.");
+                    }
+
+                    await Task.Delay(25);
+                }
+
+                await Task.Delay(250);
+            }
+        }
 
         public virtual void Process(User user, int code, char data) { }
-        public virtual void Process(User user, int code, int data) { }
+        public virtual void Process(User user, int code, int data) { ProcessDefault(user, code, data); }
         public virtual void Process(User user, int code, float data) { }
         public virtual void Process(User user, int code, double data) { }
         public virtual void Process(User user, int code, string data) { }
-        public virtual void Process(User user, int code)
+        public virtual void Process(User user, int code, string dataJSON, string typeName) { }
+        public virtual void Process(User user, int code) { }
+        private void ProcessDefault(User user, int code, int data)
         {
-            ProcessDefault(user, code);
+            if (data == int.MaxValue)
+            {
+                switch (code)
+                {
+                    case 'D':
+                        user.Disconnect();
+                        break;
+                }
+            }
         }
+
+        public void Send(User user, char code)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}0"));
+            });
+        }
+        public void Send(User user, char code, string data)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}S{(char)data.Length}").Concat(Encoding.UTF8.GetBytes($"{data}")).ToArray());
+            });
+        }
+        public void Send(User user, char code, char data)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}C").Concat(BitConverter.GetBytes(data)).ToArray());
+            });
+        }
+        public void Send(User user, char code, int data)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}I").Concat(BitConverter.GetBytes(data)).ToArray());
+            });
+        }
+        public void Send(User user, char code, double data)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}D").Concat(BitConverter.GetBytes(data)).ToArray());
+            });
+        }
+        public void Send(User user, char code, float data)
+        {
+            Task.Run(async () =>
+            {
+                await user.TCPClient.GetStream().WriteAsync(Encoding.UTF8.GetBytes($"{code}F").Concat(BitConverter.GetBytes(data)).ToArray());
+            });
+        }
+        public void Send<T>(User user, char code, T data)
+        {
+            Task.Run(async () =>
+            {
+                var jsonMessage = new JSONMessage<T>(data);
+                await user.TCPClient.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"{code}O{(char)jsonMessage.ToString().Length}").Concat(Encoding.UTF8.GetBytes($"{jsonMessage}")).ToArray());
+            });
+        }
+
+        public T ConvertJSONTo<T>(string dataJSON)
+        {
+            return JsonSerializer.Deserialize<T>(dataJSON);
+        }
+
         public virtual void Connected(User user)
         {
         }
-
-        private void ProcessDefault(User user, int code)
+        public virtual void Disconnected(User user)
         {
-            switch (code)
-            {
-                case 'Q':
-                    user.Disconnect();
-                    break;
-
-                case 'S':
-                    Connected(user);
-                    break;
-            }
         }
 
         public override void Draw()
@@ -212,5 +303,8 @@ namespace GolgedarEngine
         {
 
         }
+
+        public List<User> Users { get => users.Values.ToList(); }
+        public TcpListener Listener { get => listener; }
     }
 }
